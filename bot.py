@@ -7,7 +7,7 @@ import pymongo
 # Replace with your API credentials
 api_id = 'YOUR_API_ID' 
 api_hash = 'YOUR_API_HASH'
-bot_token = 'YOUR_BOT_TOKEN'
+bot_token = '6698671287:AAEVU1O02ZBZqDmYulk2OdOtKJtOu7d4_48'
 
 # Initialize the Pyrogram client
 app = Client("video_compressor_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
