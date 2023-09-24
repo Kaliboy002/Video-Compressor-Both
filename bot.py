@@ -120,4 +120,74 @@ def ban_command(client, message):
     else:
         message.reply_text("Please reply to a user's message or provide a valid user ID to ban.")
 
-# Define the /un
+# Define the /unban command
+@app.on_message(filters.command("unban") & filters.user("YOUR_USER_ID"))
+def unban_command(client, message):
+    user_id_to_unban = None
+    if message.reply_to_message:
+        user_id_to_unban = message.reply_to_message.from_user.id
+    elif len(message.command) > 1:
+        try:
+            user_id_to_unban = int(message.command[1])
+        except ValueError:
+            pass
+    
+    if user_id_to_unban:
+        user_collection = db["users"]
+        user_collection.update_one({"user_id": user_id_to_unban}, {"$set": {"banned": False}})
+        message.reply_text(f"User {user_id_to_unban} has been unbanned.")
+    else:
+        message.reply_text("Please reply to a user's message or provide a valid user ID to unban.")
+
+# Define a function to handle video messages
+@app.on_message(filters.video)
+def handle_video(client, message):
+    chat_id = message.chat.id
+    video_file = message.video.file_id
+    download_path = f"downloads/{video_file}.mp4"
+    
+    # Get the resolution of the video
+    resolution = f"{message.video.width}x{message.video.height}"
+    
+    # Determine the format based on resolution
+    if "1920x1080" in resolution:
+        selected_format = "1080p"
+    elif "1280x720" in resolution:
+        selected_format = "720p"
+    elif "854x480" in resolution:
+        selected_format = "480p"
+    elif "640x360" in resolution:
+        selected_format = "360p"
+    elif "426x240" in resolution:
+        selected_format = "240p"
+    else:
+        selected_format = "unknown"
+    
+    # Compose the output file name based on the resolution
+    output_file = f"downloads/compressed_{selected_format}_{video_file}.mp4"
+    
+    if selected_format == "unknown":
+        message.reply_text("Unsupported resolution. Please choose a format manually.")
+    else:
+        # Compress the video using FFmpeg with x264 codec and the detected resolution
+        ffmpeg_command = (
+            f"ffmpeg -i {download_path} -c:v libx264 -vf 'scale={resolution}' {output_file}"
+        )
+        subprocess.run(ffmpeg_command, shell=True)
+        
+        # Send the compressed video back to the user as a file
+        client.send_document(chat_id, output_file, reply_to_message_id=message.message_id)
+
+# Define a function to handle button presses
+@app.on_callback_query()
+def button_callback(client, query: CallbackQuery):
+    chat_id = query.message.chat.id
+    message_id = query.message.message_id
+    data = query.data
+    
+    if data == "start":
+        keyboard = create_main_menu_keyboard()
+        app.edit_message_text(chat_id, message_id, "Welcome to the Video Compressor Bot! Send me a video to compress.", reply_markup=keyboard)
+
+# Run the bot
+app.run()
