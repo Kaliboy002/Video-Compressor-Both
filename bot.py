@@ -13,7 +13,7 @@ bot_token = '6698671287:AAEVU1O02ZBZqDmYulk2OdOtKJtOu7d4_48'
 app = Client("video_compressor_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
 # Initialize MongoDB client and database
-mongo_client = pymongo.MongoClient("mongodb://localhost:27017/")
+mongo_client = pymongo.MongoClient("mongodb+srv://nitinsahay990:nst990@cluster0.nawvzkn.mongodb.net/")
 db = mongo_client["video_compressor_db"]
 
 # Define a function to create the main menu inline keyboard
