@@ -20,8 +20,8 @@ def send_start_keyboard(chat_id):
     keyboard = [
         [InlineKeyboardButton("Start", callback_data="start")],
         [InlineKeyboardButton("Help", callback_data="help"), InlineKeyboardButton("About", callback_data="about")],
-        [InlineKeyboardButton("Bot Status", callback_data="status")],
-        [InlineKeyboardButton("Total Users", callback_data="total_users")]
+        [InlineKeyboardButton("Status", callback_data="status")],
+        [InlineKeyboardButton("Users", callback_data="total_users")]
     ]
     
     # Only add the Broadcast Message button for the owner
