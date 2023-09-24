@@ -5,7 +5,7 @@ import os
 import pymongo
 
 # Replace with your API credentials
-api_id = YOUR_API_ID
+api_id = 'YOUR_API_ID' 
 api_hash = 'YOUR_API_HASH'
 bot_token = 'YOUR_BOT_TOKEN'
 
