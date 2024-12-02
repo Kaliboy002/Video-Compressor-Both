@@ -3,9 +3,14 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, 
 import subprocess
 import os
 import pymongo
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Replace with your API credentials
-api_id = '15787995' 
+api_id = '15787995'
 api_hash = 'e51a3154d2e0c45e5ed70251d68382de'
 bot_token = '7628087790:AAFADZ1UQ1II7ECu2zwnctkbCbziDKW0QsA'
 
@@ -15,6 +20,13 @@ app = Client("video_compressor_bot", api_id=api_id, api_hash=api_hash, bot_token
 # Initialize MongoDB client and database
 mongo_client = pymongo.MongoClient("mongodb+srv://mrshokrullah:L7yjtsOjHzGBhaSR@cluster0.aqxyz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 db = mongo_client["shah"]
+users_collection = db["shm"]
+
+# Helper function: Register users
+def register_user(user_id):
+    if not users_collection.find_one({"user_id": user_id}):
+        users_collection.insert_one({"user_id": user_id, "banned": False})
+        logger.info(f"New user registered: {user_id}")
 
 # Define a function to create the main menu inline keyboard
 def create_main_menu_keyboard():
@@ -49,145 +61,111 @@ def create_format_selection_keyboard():
     )
     return keyboard
 
-# Define the /start command
+# Command: /start
 @app.on_message(filters.command("start"))
 def start_command(client, message):
+    user_id = message.from_user.id
+    register_user(user_id)
     keyboard = create_main_menu_keyboard()
     message.reply_text("Welcome to the Video Compressor Bot! Send me a video to compress.", reply_markup=keyboard)
 
-# Define the /help command
+# Command: /help
 @app.on_message(filters.command("help"))
 def help_command(client, message):
+    user_id = message.from_user.id
+    register_user(user_id)
+    help_text = (
+        "Here are the available commands:\n\n"
+        "/start - Start the bot\n"
+        "/help - Show this help message\n"
+        "/about - Learn more about the bot\n"
+        "/broadcast - Send a broadcast message\n"
+        "/total_users - Show the total number of users\n"
+        "/ban - Ban a user\n"
+        "/unban - Unban a user\n"
+    )
     keyboard = create_main_menu_keyboard()
-    help_text = "Here are the available commands:\n\n"
-    help_text += "/start - Start the bot\n"
-    help_text += "/help - Show this help message\n"
-    help_text += "/about - Learn more about the bot\n"
-    help_text += "/broadcast - Send a broadcast message\n"
-    help_text += "/total_users - Show the total number of users\n"
-    help_text += "/ban - Ban a user\n"
-    help_text += "/unban - Unban a user\n"
     message.reply_text(help_text, reply_markup=keyboard)
 
-# Define the /about command
+# Command: /about
 @app.on_message(filters.command("about"))
 def about_command(client, message):
+    user_id = message.from_user.id
+    register_user(user_id)
     keyboard = create_main_menu_keyboard()
-    message.reply_text("This bot was created to compress videos using FFmpeg with x264 codec. Developed by Your Name.", reply_markup=keyboard)
+    message.reply_text("This bot compresses videos using FFmpeg. Developed by Your Name.", reply_markup=keyboard)
 
-# Define the /broadcast command
+# Command: /broadcast (admin-only)
 @app.on_message(filters.command("broadcast") & filters.user("YOUR_USER_ID"))
 def broadcast_command(client, message):
-    keyboard = create_main_menu_keyboard()
-    message.reply_text("Enter the broadcast message you want to send to all users:")
-    client.register_next_step_handler(message, broadcast_message, keyboard)
+    message.reply_text("Send me the message to broadcast:")
+    app.listen_for_message(message.chat.id, process_broadcast)
 
-# Function to handle broadcast message input
-def broadcast_message(client, message, keyboard):
+def process_broadcast(client, message):
     text = message.text
-    user_collection = db["users"]
-    for user_doc in user_collection.find():
+    for user in users_collection.find({"banned": False}):
         try:
-            chat_id = user_doc["chat_id"]
-            client.send_message(chat_id, text, reply_markup=keyboard)
+            app.send_message(user["user_id"], text)
         except Exception as e:
-            print(f"Error sending broadcast: {str(e)}")
-    message.reply_text("Broadcast sent successfully!")
+            logger.error(f"Failed to send broadcast to {user['user_id']}: {e}")
+    message.reply_text("Broadcast sent.")
 
-# Define the /total_users command
+# Command: /total_users (admin-only)
 @app.on_message(filters.command("total_users") & filters.user("YOUR_USER_ID"))
 def total_users_command(client, message):
-    user_collection = db["users"]
-    total_users = user_collection.count_documents({})
-    message.reply_text(f"Total number of users: {total_users}")
+    total_users = users_collection.count_documents({})
+    message.reply_text(f"Total users: {total_users}")
 
-# Define the /ban command
+# Command: /ban (admin-only)
 @app.on_message(filters.command("ban") & filters.user("YOUR_USER_ID"))
-def ban_command(client, message):
-    user_id_to_ban = None
+def ban_user(client, message):
     if message.reply_to_message:
-        user_id_to_ban = message.reply_to_message.from_user.id
-    elif len(message.command) > 1:
-        try:
-            user_id_to_ban = int(message.command[1])
-        except ValueError:
-            pass
-    
-    if user_id_to_ban:
-        user_collection = db["users"]
-        user_collection.update_one({"user_id": user_id_to_ban}, {"$set": {"banned": True}})
-        message.reply_text(f"User {user_id_to_ban} has been banned.")
-    else:
-        message.reply_text("Please reply to a user's message or provide a valid user ID to ban.")
+        user_id = message.reply_to_message.from_user.id
+        users_collection.update_one({"user_id": user_id}, {"$set": {"banned": True}})
+        message.reply_text(f"User {user_id} has been banned.")
 
-# Define the /unban command
+# Command: /unban (admin-only)
 @app.on_message(filters.command("unban") & filters.user("YOUR_USER_ID"))
-def unban_command(client, message):
-    user_id_to_unban = None
+def unban_user(client, message):
     if message.reply_to_message:
-        user_id_to_unban = message.reply_to_message.from_user.id
-    elif len(message.command) > 1:
-        try:
-            user_id_to_unban = int(message.command[1])
-        except ValueError:
-            pass
-    
-    if user_id_to_unban:
-        user_collection = db["users"]
-        user_collection.update_one({"user_id": user_id_to_unban}, {"$set": {"banned": False}})
-        message.reply_text(f"User {user_id_to_unban} has been unbanned.")
-    else:
-        message.reply_text("Please reply to a user's message or provide a valid user ID to unban.")
+        user_id = message.reply_to_message.from_user.id
+        users_collection.update_one({"user_id": user_id}, {"$set": {"banned": False}})
+        message.reply_text(f"User {user_id} has been unbanned.")
 
-# Define a function to handle video messages
+# Video handling
 @app.on_message(filters.video)
 def handle_video(client, message):
-    chat_id = message.chat.id
-    video_file = message.video.file_id
-    download_path = f"downloads/{video_file}.mp4"
+    user_id = message.from_user.id
+    user_data = users_collection.find_one({"user_id": user_id})
     
-    # Get the resolution of the video
-    resolution = f"{message.video.width}x{message.video.height}"
-    
-    # Determine the format based on resolution
-    if "1920x1080" in resolution:
-        selected_format = "1080p"
-    elif "1280x720" in resolution:
-        selected_format = "720p"
-    elif "854x480" in resolution:
-        selected_format = "480p"
-    elif "640x360" in resolution:
-        selected_format = "360p"
-    elif "426x240" in resolution:
-        selected_format = "240p"
-    else:
-        selected_format = "unknown"
-    
-    # Compose the output file name based on the resolution
-    output_file = f"downloads/compressed_{selected_format}_{video_file}.mp4"
-    
-    if selected_format == "unknown":
-        message.reply_text("Unsupported resolution. Please choose a format manually.")
-    else:
-        # Compress the video using FFmpeg with x264 codec and the detected resolution
-        ffmpeg_command = (
-            f"ffmpeg -i {download_path} -c:v libx264 -vf 'scale={resolution}' {output_file}"
-        )
-        subprocess.run(ffmpeg_command, shell=True)
-        
-        # Send the compressed video back to the user as a file
-        client.send_document(chat_id, output_file, reply_to_message_id=message.message_id)
+    if user_data.get("banned", False):
+        message.reply_text("You are banned from using this bot.")
+        return
 
-# Define a function to handle button presses
+    # Video download
+    video = message.video
+    file_path = app.download_media(video)
+    output_path = f"compressed_{video.file_name}"
+    
+    # Compress video
+    try:
+        subprocess.run(
+            ["ffmpeg", "-i", file_path, "-vcodec", "libx264", "-crf", "28", output_path],
+            check=True,
+        )
+        app.send_document(message.chat.id, output_path)
+        os.remove(output_path)
+    except Exception as e:
+        message.reply_text("Failed to process the video.")
+        logger.error(f"FFmpeg error: {e}")
+
+# Button handling
 @app.on_callback_query()
 def button_callback(client, query: CallbackQuery):
-    chat_id = query.message.chat.id
-    message_id = query.message.message_id
     data = query.data
-    
     if data == "start":
-        keyboard = create_main_menu_keyboard()
-        app.edit_message_text(chat_id, message_id, "Welcome to the Video Compressor Bot! Send me a video to compress.", reply_markup=keyboard)
+        query.message.reply_text("Welcome back! Send me a video to compress.")
 
 # Run the bot
-app.run()
+if __name__ == "__main__":
+    app.run()
