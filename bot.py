@@ -5,16 +5,16 @@ import os
 import pymongo
 
 # Replace with your API credentials
-api_id = '23163825' 
-api_hash = '668422a97c2fcf2ed125ffd8a783223d'
-bot_token = '6698671287:AAEVU1O02ZBZqDmYulk2OdOtKJtOu7d4_48'
+api_id = '15787995' 
+api_hash = 'e51a3154d2e0c45e5ed70251d68382de'
+bot_token = '7628087790:AAFADZ1UQ1II7ECu2zwnctkbCbziDKW0QsA'
 
 # Initialize the Pyrogram client
 app = Client("video_compressor_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
 # Initialize MongoDB client and database
-mongo_client = pymongo.MongoClient("mongodb+srv://nitinsahay990:nst990@cluster0.nawvzkn.mongodb.net/")
-db = mongo_client["video_compressor_db"]
+mongo_client = pymongo.MongoClient("mongodb+srv://mrshokrullah:L7yjtsOjHzGBhaSR@cluster0.aqxyz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+db = mongo_client["shah"]
 
 # Define a function to create the main menu inline keyboard
 def create_main_menu_keyboard():
